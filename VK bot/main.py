@@ -2,9 +2,10 @@ import time
 import requests
 import random
 import vk_api
+import csv
 import json
 token = ""
-urlcon  = 'https://api.vk.com/method/messages.getConversations?v=5.52&count=200&access_token='+token
+urlcon = 'https://api.vk.com/method/messages.getConversations?v=5.52&count=200&access_token='+token
 
 
 class Teacher:
@@ -33,6 +34,9 @@ class Server:
                                          keyboard=open(keyb, "r", encoding="UTF-8").read())
 
 
+with open('lib.csv', encoding="utf8") as csvfile:
+    lib = csv.reader(csvfile, delimiter=';', quotechar='"')
+
 serv = Server(token)
 users = 0
 tcur = 0
@@ -41,7 +45,7 @@ while True:
     r = requests.get(urlcon).json()
     for i in r['response']['items']:
         try:
-          if (i['conversation']['unread_count']!=0):
+          if i['conversation']['unread_count'] != 0:
             urlmark = 'https://api.vk.com/method/messages.markAsRead?v=5.52&'+str(i['conversation']['last_message_id'])+'&peer_id='+str(i['conversation']['peer']['id'])+'&access_token='+token
             print(urlmark)
             print(requests.get(urlmark).json())
@@ -69,8 +73,21 @@ while True:
                                     serv.send_msg(t.id, 'Ответ ученика: ' + p[1], "teacher.json")
                     elif tcur == 1:
                         tcur = 0
-                        t.questions.append([i['last_message']['text'], ''])
-                        serv.send_msg(t.id, "Мы отправили ваш вопрос ученикам", "teacher.json")
+                        flag = 0
+                        answer = i['last_message']['text'].split()
+                        if "?" in answer[-1]:
+                            answer[-1] = answer[-1][0:len(answer[-1]) - 1]
+                            print("!")
+                        for row in lib:
+                            print(answer[-1].lower(), row[0].lower())
+                            if answer[-1].lower() in row[0].lower():
+                                flag = 1
+                                serv.send_msg(t.id, 'Ваш вопрос: ' + i['last_message']['text'], "teacher.json")
+                                serv.send_msg(t.id, 'Ответ ученика: ' + row[1], "teacher.json")
+                                break
+                        if flag == 0:
+                            t.questions.append([i['last_message']['text'], ''])
+                            serv.send_msg(t.id, "Мы отправили ваш вопрос ученикам", "teacher.json")
                 else:
                     if i['last_message']['text'] == 'Получить вопрос':
                         if len(t.questions) == 0:
